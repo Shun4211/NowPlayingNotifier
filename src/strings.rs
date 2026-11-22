@@ -79,6 +79,36 @@ pub fn hotkey_failed_message(keys: &str) -> String {
 }
 pub fn startup_failed_title() -> &'static str { t("自動起動の設定に失敗しました", "Failed to update startup setting") }
 
+// 更新
+pub fn update_caption() -> &'static str { t("アップデート", "Update") }
+pub fn tray_update(version: &str) -> String {
+    tf(format!("バージョン {version} に更新..."), format!("Update to version {version}..."))
+}
+pub fn update_available_title(version: &str) -> String {
+    tf(format!("新しいバージョン {version} があります"), format!("Version {version} is available"))
+}
+pub fn update_available_message() -> &'static str {
+    t("ここをクリックすると更新できます。", "Click here to update.")
+}
+pub fn update_confirm(new: &str, current: &str) -> String {
+    tf(
+        format!("バージョン {new} に更新しますか？（今のバージョン: {current}）\n\n更新のあいだアプリは一度終了し、終わると自動で起動し直します。"),
+        format!("Update to version {new}? (Current version: {current})\n\nThe app will close during the update and start again when it finishes."),
+    )
+}
+pub fn update_open_page(new: &str, current: &str) -> String {
+    tf(
+        format!("バージョン {new} が公開されています（今のバージョン: {current}）。\n\nダウンロードページを開きますか？"),
+        format!("Version {new} is available (current version: {current}).\n\nOpen the download page?"),
+    )
+}
+pub fn update_up_to_date(current: &str) -> String {
+    tf(format!("最新のバージョンです（{current}）。"), format!("You have the latest version ({current})."))
+}
+pub fn update_downloading() -> &'static str { t("更新をダウンロードしています...", "Downloading the update...") }
+pub fn update_check_failed() -> &'static str { t("更新を確認できませんでした", "Could not check for updates") }
+pub fn update_download_failed() -> &'static str { t("更新をダウンロードできませんでした", "Could not download the update") }
+
 // 設定画面
 pub fn settings_title() -> &'static str { t("設定", "Settings") }
 pub fn position_header() -> &'static str { t("表示位置", "Popup Position") }
@@ -129,6 +159,8 @@ pub fn taskbar_offset() -> &'static str { t("間隔:", "Offset:") }
 pub fn taskbar_show_artist() -> &'static str { t("アーティスト名を表示する", "Show artist") }
 pub fn taskbar_show_album_art() -> &'static str { t("アルバムアートを表示する", "Show album art") }
 pub fn start_with_windows() -> &'static str { t("Windows の起動時に自動で起動する", "Start with Windows") }
+pub fn check_for_updates() -> &'static str { t("更新を自動で確認する", "Check for updates automatically") }
+pub fn check_now() -> &'static str { t("更新を確認", "Check for updates") }
 pub fn hotkeys_header() -> &'static str { t("ホットキー", "Hotkeys") }
 pub fn hotkey_hint() -> &'static str {
     t("欄をクリックしてキーを押してください（Delete で無効化）", "Click a box and press keys (Delete to disable)")
@@ -174,7 +206,8 @@ mod tests {
             taskbar_left_edge(), taskbar_layout(), taskbar_layout_auto(), taskbar_layout_one(),
             taskbar_layout_two(), taskbar_max_width(), taskbar_font_size(), taskbar_offset(),
             taskbar_show_artist(), taskbar_show_album_art(), taskbar_paused(), taskbar_paused_hide(),
-            taskbar_paused_indicate(),
+            taskbar_paused_indicate(), update_caption(), update_available_message(), update_downloading(),
+            update_check_failed(), update_download_failed(), check_for_updates(), check_now(),
         ]
         .iter()
         .map(|s| s.to_string())
@@ -183,6 +216,11 @@ mod tests {
         v.push(monitor_item(1, 1920, 1080, true));
         v.push(seconds(5));
         v.push(version_label("1.0.0"));
+        v.push(tray_update("1.0.0"));
+        v.push(update_available_title("1.0.0"));
+        v.push(update_confirm("1.1.0", "1.0.0"));
+        v.push(update_open_page("1.1.0", "1.0.0"));
+        v.push(update_up_to_date("1.0.0"));
         v
     }
 

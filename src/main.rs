@@ -18,6 +18,7 @@ mod system;
 mod taskbar;
 mod track;
 mod tray;
+mod update;
 mod win;
 
 use windows::core::{w, HSTRING};
@@ -55,4 +56,8 @@ fn main() {
     }
     instance.listen();
     app::run_message_loop();
+
+    // 更新のために終了した場合は、二重起動防止の Mutex を手放してからインストーラーを実行する
+    drop(instance);
+    update::launch_pending_installer();
 }

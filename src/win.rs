@@ -10,6 +10,7 @@ use windows::Win32::UI::HiDpi::{GetDpiForWindow, SystemParametersInfoForDpi};
 use windows::Win32::UI::WindowsAndMessaging::{PostMessageW, NONCLIENTMETRICSW, SPI_GETNONCLIENTMETRICS, WM_APP};
 
 use crate::media::MediaEvent;
+use crate::update::UpdateEvent;
 
 /// exe に埋め込んだアイコンのリソース ID（MAKEINTRESOURCE(1)）。
 pub const APP_ICON: PCWSTR = PCWSTR(std::ptr::without_provenance(1));
@@ -114,6 +115,8 @@ pub enum AppEvent {
     Media(MediaEvent),
     /// 後から起動されたインスタンスがウィンドウの表示を依頼した。
     ActivateRequested,
+    /// 更新の確認・ダウンロードの結果。
+    Update(UpdateEvent),
 }
 
 static EVENT_TARGET: AtomicIsize = AtomicIsize::new(0);

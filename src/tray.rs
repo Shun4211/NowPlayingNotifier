@@ -17,6 +17,10 @@ const TOOLTIP: &str = "Now Playing Notifier";
 pub const CMD_SHOW: usize = 1;
 pub const CMD_SETTINGS: usize = 2;
 pub const CMD_EXIT: usize = 3;
+pub const CMD_UPDATE: usize = 4;
+
+/// バルーン通知がクリックされた（WM_TRAY の lParam。shellapi.h の NIN_BALLOONUSERCLICK）。
+pub const NIN_BALLOONUSERCLICK: u32 = WM_USER + 5;
 
 fn base_data(hwnd: HWND) -> NOTIFYICONDATAW {
     NOTIFYICONDATAW {
@@ -58,9 +62,18 @@ pub fn remove(hwnd: HWND) {
 
 /// トレイからバルーン通知でエラーなどを知らせる。
 pub fn show_balloon(hwnd: HWND, title: &str, message: &str) {
+    balloon(hwnd, title, message, NIIF_WARNING);
+}
+
+/// トレイからバルーン通知でお知らせ（更新など）を出す。
+pub fn show_info_balloon(hwnd: HWND, title: &str, message: &str) {
+    balloon(hwnd, title, message, NIIF_INFO);
+}
+
+fn balloon(hwnd: HWND, title: &str, message: &str, icon: NOTIFY_ICON_INFOTIP_FLAGS) {
     let mut data = base_data(hwnd);
     data.uFlags = NIF_INFO;
-    data.dwInfoFlags = NIIF_WARNING;
+    data.dwInfoFlags = icon;
     copy_to_buffer(&mut data.szInfoTitle, title);
     copy_to_buffer(&mut data.szInfo, if message.trim().is_empty() { title } else { message });
     unsafe {
@@ -69,15 +82,16 @@ pub fn show_balloon(hwnd: HWND, title: &str, message: &str) {
 }
 
 /// 右クリックメニューを表示し、選ばれたコマンドを返す。
-pub fn show_menu(hwnd: HWND) -> Option<usize> {
+/// `update_version` があれば、その版に更新する項目も出す。
+pub fn show_menu(hwnd: HWND, update_version: Option<&str>) -> Option<usize> {
     unsafe {
         let menu = CreatePopupMenu().ok()?;
-        let items = [
-            (CMD_SHOW, strings::tray_show()),
-            (CMD_SETTINGS, strings::tray_settings()),
-            (0, ""),
-            (CMD_EXIT, strings::tray_exit()),
-        ];
+        let update_text = update_version.map(strings::tray_update);
+        let mut items: Vec<(usize, &str)> = vec![(CMD_SHOW, strings::tray_show()), (CMD_SETTINGS, strings::tray_settings())];
+        if let Some(text) = &update_text {
+            items.push((CMD_UPDATE, text));
+        }
+        items.extend([(0, ""), (CMD_EXIT, strings::tray_exit())]);
         for (id, text) in items {
             if id == 0 {
                 let _ = AppendMenuW(menu, MF_SEPARATOR, 0, PCWSTR::null());

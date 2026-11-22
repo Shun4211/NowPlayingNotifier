@@ -1,6 +1,6 @@
 //! アプリ全体の制御。非表示の制御用ウィンドウでトレイ・ホットキー・イベントのメッセージを受け取る。
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 
 use windows::core::{w, Result};
 use windows::Win32::Foundation::*;
@@ -15,6 +15,7 @@ use crate::settings_window::{self, Callbacks};
 use crate::strings;
 use crate::system::{self, monitor_or_primary};
 use crate::track::{TrackChange, TrackChangeDetector};
+use crate::update::{self, Release, UpdateEvent};
 use crate::win::{loword, take_events, AppEvent, WM_APP_EVENT};
 use crate::{main_window, popup, taskbar, tray};
 
@@ -31,6 +32,10 @@ const DEFERRED_DELAY_MS: u32 = 1000;
 /// 同じセッションに一瞬入ってくるので、すぐには表示しない。
 const TIMER_CONFIRM_PAUSE: usize = 3;
 const CONFIRM_PAUSE_MS: u32 = 2000;
+/// 更新の確認。起動直後は他の処理の邪魔をしないよう少し待ち、その後は1日1回。
+const TIMER_UPDATE_CHECK: usize = 4;
+const FIRST_UPDATE_CHECK_MS: u32 = 60 * 1000;
+const UPDATE_CHECK_INTERVAL_MS: u32 = 24 * 60 * 60 * 1000;
 
 /// 一時停止中の情報の扱い。
 #[derive(Clone, Copy, PartialEq, Debug)]
@@ -57,6 +62,14 @@ struct App {
     pause_check: PauseCheck,
     hotkeys: Hotkeys,
     taskbar_created: u32,
+    /// 公開されている新しいバージョン（確認して見つかったもの）
+    available_update: Option<Release>,
+    /// バルーンで知らせたバージョン（同じ版を何度も知らせない）
+    notified_version: Option<String>,
+    /// 最後に出したバルーンが更新のお知らせか（クリックで更新するため）
+    update_balloon: Cell<bool>,
+    /// インストーラーをダウンロード中
+    downloading: bool,
 }
 
 thread_local! {
@@ -115,12 +128,17 @@ pub fn start() -> Result<()> {
             pause_check: PauseCheck::None,
             hotkeys: Hotkeys::new(controller),
             taskbar_created,
+            available_update: None,
+            notified_version: None,
+            update_balloon: Cell::new(false),
+            downloading: false,
         })
     });
 
     with_app(|app| {
         app.apply_startup_registration();
         app.register_hotkeys();
+        app.schedule_update_check();
     });
     media::request_manager();
     Ok(())
@@ -128,7 +146,40 @@ pub fn start() -> Result<()> {
 
 impl App {
     fn balloon(&self, title: &str, message: &str) {
+        self.update_balloon.set(false);
         tray::show_balloon(self.controller, title, message);
+    }
+
+    /// 自動の更新確認を（設定が有効なら）予約し直す。無効なら止める。
+    fn schedule_update_check(&self) {
+        unsafe {
+            if self.settings.check_for_updates {
+                SetTimer(self.controller, TIMER_UPDATE_CHECK, FIRST_UPDATE_CHECK_MS, None);
+            } else {
+                let _ = KillTimer(self.controller, TIMER_UPDATE_CHECK);
+            }
+        }
+    }
+
+    fn on_update_timer(&self) {
+        unsafe {
+            SetTimer(self.controller, TIMER_UPDATE_CHECK, UPDATE_CHECK_INTERVAL_MS, None);
+        }
+        update::check(false);
+    }
+
+    /// 確認で新しい版が見つかった。自動の確認なら、まだ知らせていない版だけバルーンで知らせる。
+    fn on_update_found(&mut self, release: Release, manual: bool) {
+        if !manual && self.notified_version.as_deref() != Some(release.version.as_str()) {
+            self.notified_version = Some(release.version.clone());
+            tray::show_info_balloon(
+                self.controller,
+                &strings::update_available_title(&release.version),
+                strings::update_available_message(),
+            );
+            self.update_balloon.set(true);
+        }
+        self.available_update = Some(release);
     }
 
     fn apply_startup_registration(&self) {
@@ -351,6 +402,7 @@ impl App {
     fn apply_settings(&mut self, settings: Settings) {
         let language_changed = settings.language != self.settings.language;
         let startup_changed = settings.start_with_windows != self.settings.start_with_windows;
+        let update_check_changed = settings.check_for_updates != self.settings.check_for_updates;
         let reload_art = (settings.show_album_art && !self.settings.show_album_art)
             || (wants_taskbar_art(&settings) && !wants_taskbar_art(&self.settings));
         self.settings = settings;
@@ -373,6 +425,9 @@ impl App {
         }
         if startup_changed {
             self.apply_startup_registration();
+        }
+        if update_check_changed {
+            self.schedule_update_check();
         }
     }
 }
@@ -399,10 +454,97 @@ fn on_popup_clicked() {
 }
 
 fn show_tray_menu() {
-    let Some(controller) = with_app(|a| a.controller) else { return };
-    if let Some(cmd) = tray::show_menu(controller) {
+    let Some((controller, version)) = with_app(|a| (a.controller, a.available_update.as_ref().map(|r| r.version.clone())))
+    else {
+        return;
+    };
+    if let Some(cmd) = tray::show_menu(controller, version.as_deref()) {
         run_command(cmd);
     }
+}
+
+// ---------------------------------------------------------------------------
+// 更新
+
+thread_local! {
+    /// 更新の確認ダイアログを表示中（二重に開かないため）
+    static PROMPTING: Cell<bool> = const { Cell::new(false) };
+}
+
+/// アプリのメッセージボックス。設定画面か「再生中」ウィンドウが開いていれば、その上に出す。
+fn message_box(text: &str, style: MESSAGEBOX_STYLE) -> MESSAGEBOX_RESULT {
+    let owner = settings_window::hwnd().or_else(|| main_window::is_visible().then(main_window::hwnd).flatten());
+    let text = crate::win::wide(text);
+    let caption = crate::win::wide(strings::update_caption());
+    unsafe { MessageBoxW(owner.unwrap_or_default(), text.pcwstr(), caption.pcwstr(), style | MB_SETFOREGROUND) }
+}
+
+fn on_update_event(event: UpdateEvent) {
+    match event {
+        UpdateEvent::Checked { manual, result } => match result {
+            Ok(Some(release)) => {
+                debug_log!("update: found {}", release.version);
+                with_app(|a| a.on_update_found(release, manual));
+                if manual {
+                    prompt_update();
+                }
+            }
+            Ok(None) => {
+                with_app(|a| a.available_update = None);
+                if manual {
+                    message_box(&strings::update_up_to_date(crate::APP_VERSION), MB_ICONINFORMATION);
+                }
+            }
+            Err(e) => {
+                debug_log!("update: check failed: {e}");
+                if manual {
+                    message_box(&format!("{}\n\n{e}", strings::update_check_failed()), MB_ICONWARNING);
+                }
+            }
+        },
+        UpdateEvent::Downloaded(Ok(path)) => {
+            // 終了してから（main で）インストーラーを実行する
+            update::set_pending_installer(path);
+            exit();
+        }
+        UpdateEvent::Downloaded(Err(e)) => {
+            with_app(|a| a.downloading = false);
+            message_box(&format!("{}\n\n{e}", strings::update_download_failed()), MB_ICONWARNING);
+        }
+    }
+}
+
+/// 新しい版に更新するか尋ねる。インストーラーで入れたものならダウンロードして入れ替え、
+/// そうでなければ（zip 版など）ダウンロードページを開く。
+fn prompt_update() {
+    let Some(Some(release)) = with_app(|a| if a.downloading { None } else { a.available_update.clone() }) else { return };
+    if PROMPTING.with(|p| p.replace(true)) {
+        return;
+    }
+    match release.installer_url.clone().filter(|_| update::is_installed()) {
+        Some(url) => {
+            let text = strings::update_confirm(&release.version, crate::APP_VERSION);
+            if message_box(&text, MB_YESNO | MB_ICONQUESTION) == IDYES {
+                with_app(|a| {
+                    a.downloading = true;
+                    a.update_balloon.set(false);
+                    tray::show_info_balloon(a.controller, strings::update_downloading(), "");
+                });
+                update::download(url);
+            }
+        }
+        None => {
+            let text = strings::update_open_page(&release.version, crate::APP_VERSION);
+            if message_box(&text, MB_YESNO | MB_ICONQUESTION) == IDYES {
+                update::open_page(&release.page_url);
+            }
+        }
+    }
+    PROMPTING.with(|p| p.set(false));
+}
+
+fn on_check_update_clicked() {
+    update::check(true);
 }
 
 fn open_settings() {
@@ -414,7 +556,7 @@ fn open_settings() {
         return;
     };
     let owner = main_window::is_visible().then(main_window::hwnd).flatten();
-    let result = settings_window::open(owner, settings, Callbacks { preview: on_preview, closed: on_settings_closed });
+    let result = settings_window::open(owner, settings, Callbacks { preview: on_preview, closed: on_settings_closed, check_update: on_check_update_clicked });
     if result.is_err() {
         with_app(App::register_hotkeys);
     }
@@ -449,6 +591,7 @@ fn run_command(cmd: usize) {
         tray::CMD_SHOW => main_window::show(),
         tray::CMD_SETTINGS => open_settings(),
         tray::CMD_EXIT => exit(),
+        tray::CMD_UPDATE => prompt_update(),
         _ => {}
     }
 }
@@ -480,6 +623,7 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
                         with_app(|a| a.on_media_event(e));
                     }
                     AppEvent::ActivateRequested => main_window::show(),
+                    AppEvent::Update(e) => on_update_event(e),
                 }
             }
             LRESULT(0)
@@ -490,6 +634,10 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         }
         WM_TIMER if wparam.0 == TIMER_CONFIRM_PAUSE => {
             with_app(App::on_confirm_pause_timer);
+            LRESULT(0)
+        }
+        WM_TIMER if wparam.0 == TIMER_UPDATE_CHECK => {
+            with_app(|a| a.on_update_timer());
             LRESULT(0)
         }
         WM_TIMER if wparam.0 == TIMER_DEFERRED => {
@@ -506,10 +654,9 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
         tray::WM_TRAY => {
             match loword(lparam.0 as usize) {
                 WM_LBUTTONDBLCLK => main_window::show(),
-                WM_RBUTTONUP | WM_CONTEXTMENU => {
-                    if let Some(cmd) = tray::show_menu(hwnd) {
-                        run_command(cmd);
-                    }
+                WM_RBUTTONUP | WM_CONTEXTMENU => show_tray_menu(),
+                tray::NIN_BALLOONUSERCLICK if with_app(|a| a.update_balloon.replace(false)) == Some(true) => {
+                    prompt_update();
                 }
                 _ => {}
             }

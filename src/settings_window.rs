@@ -45,6 +45,7 @@ const DC_HASDEFID: usize = 0x534B;
 const DLGC_WANTALLKEYS: isize = 0x0004;
 
 const ID_PREVIEW: i32 = 100;
+const ID_CHECK_UPDATE: i32 = 101;
 const ID_SAVE: i32 = IDOK.0;
 const ID_CANCEL: i32 = IDCANCEL.0;
 
@@ -92,6 +93,7 @@ struct Controls {
     album_art: HWND,
     fullscreen: HWND,
     startup: HWND,
+    check_updates: HWND,
     taskbar: HWND,
     taskbar_position: [HWND; 2],
     taskbar_layout: HWND,
@@ -115,6 +117,8 @@ pub struct Callbacks {
     pub preview: fn(Settings),
     /// 保存したら Some(新しい設定)、キャンセルしたら None。
     pub closed: fn(Option<Settings>),
+    /// 「更新を確認」が押された。
+    pub check_update: fn(),
 }
 
 struct State {
@@ -400,7 +404,8 @@ fn build_controls(state: &mut State, hinstance: HINSTANCE) -> i32 {
     c.album_art = b.check(strings::show_album_art(), x, y, 350);
     c.fullscreen = b.check(strings::suppress_in_fullscreen(), x, y + 28, 350);
     c.startup = b.check(strings::start_with_windows(), x, y + 56, 350);
-    y += 28 * 3 + 16;
+    c.check_updates = b.check(strings::check_for_updates(), x, y + 84, 350);
+    y += 28 * 4 + 16;
 
     b.header(strings::hotkeys_header(), x, &mut y, 350);
     c.hint = b.label(strings::hotkey_hint(), x, y, 350, 34, 0, FontKind::Small);
@@ -470,7 +475,8 @@ fn build_controls(state: &mut State, hinstance: HINSTANCE) -> i32 {
 
     // 下のボタン
     let y = left_bottom.max(right_bottom).max(third_bottom) + 20;
-    c.version = b.label(&strings::version_label(crate::APP_VERSION), 20, y, 300, 32, SS_CENTERIMAGE, FontKind::Small);
+    c.version = b.label(&strings::version_label(crate::APP_VERSION), 20, y, 150, 32, SS_CENTERIMAGE, FontKind::Small);
+    b.button(strings::check_now(), ID_CHECK_UPDATE, false, 175, y, 160);
     let cancel_x = CLIENT_WIDTH - 20 - 100;
     let save_x = cancel_x - 12 - 100;
     let preview_x = save_x - 12 - 120;
@@ -574,6 +580,7 @@ fn load_values(state: &mut State) {
     set_check(c.taskbar_artist, s.taskbar_show_artist);
     set_check(c.taskbar_art, s.taskbar_show_album_art);
     set_check(c.startup, s.start_with_windows);
+    set_check(c.check_updates, s.check_for_updates);
     set_combo(c.language, if s.language == Language::English { 1 } else { 0 });
 }
 
@@ -613,6 +620,7 @@ fn build_settings() -> Option<Settings> {
         r.taskbar_show_artist = is_checked(c.taskbar_artist);
         r.taskbar_show_album_art = is_checked(c.taskbar_art);
         r.start_with_windows = is_checked(c.startup);
+        r.check_for_updates = is_checked(c.check_updates);
         [r.play_pause_hotkey, r.next_track_hotkey, r.previous_track_hotkey] = s.hotkeys;
         r.language = if combo(c.language) == Some(1) { Language::English } else { Language::Japanese };
         r.normalize();
@@ -867,6 +875,11 @@ unsafe extern "system" fn wndproc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: 
                             (build_settings(), STATE.with(|s| s.try_borrow().ok()?.as_ref().map(|s| s.callbacks.preview)))
                         {
                             cb(settings);
+                        }
+                    }
+                    ID_CHECK_UPDATE => {
+                        if let Some(cb) = STATE.with(|s| s.try_borrow().ok()?.as_ref().map(|s| s.callbacks.check_update)) {
+                            cb();
                         }
                     }
                     ID_SAVE => close(true),

@@ -121,6 +121,8 @@ pub struct Settings {
     pub show_album_art: bool,
     pub suppress_in_fullscreen: bool,
     pub start_with_windows: bool,
+    /// 起動時と1日1回、新しいバージョンがあるか確認する。
+    pub check_for_updates: bool,
     pub language: Language,
 
     // タスクバー表示
@@ -157,6 +159,7 @@ impl Default for Settings {
             show_album_art: true,
             suppress_in_fullscreen: true,
             start_with_windows: false,
+            check_for_updates: true,
             language: Language::system_default(),
             show_in_taskbar: true,
             taskbar_position: TaskbarPosition::NearTray,
@@ -246,6 +249,7 @@ impl Settings {
         if let Some(v) = boolean("TaskbarShowArtist") { s.taskbar_show_artist = v; }
         if let Some(v) = boolean("TaskbarShowAlbumArt") { s.taskbar_show_album_art = v; }
         if let Some(v) = boolean("StartWithWindows") { s.start_with_windows = v; }
+        if let Some(v) = boolean("CheckForUpdates") { s.check_for_updates = v; }
         if let Some(v) = hotkey("PlayPauseHotkey") { s.play_pause_hotkey = v; }
         if let Some(v) = hotkey("NextTrackHotkey") { s.next_track_hotkey = v; }
         if let Some(v) = hotkey("PreviousTrackHotkey") { s.previous_track_hotkey = v; }
@@ -267,6 +271,7 @@ impl Settings {
         m.insert("ShowAlbumArt".into(), json!(self.show_album_art));
         m.insert("SuppressInFullscreen".into(), json!(self.suppress_in_fullscreen));
         m.insert("StartWithWindows".into(), json!(self.start_with_windows));
+        m.insert("CheckForUpdates".into(), json!(self.check_for_updates));
         m.insert("Language".into(), json!(self.language as i64));
         m.insert("ShowInTaskbar".into(), json!(self.show_in_taskbar));
         m.insert("TaskbarPosition".into(), json!(self.taskbar_position as i64));
@@ -399,6 +404,7 @@ mod tests {
             show_album_art: false,
             suppress_in_fullscreen: false,
             start_with_windows: true,
+            check_for_updates: false,
             language: Language::English,
             show_in_taskbar: false,
             taskbar_position: TaskbarPosition::LeftEdge,
@@ -424,6 +430,7 @@ mod tests {
         assert_eq!(s.popup_width, 350);
         assert!(s.show_album_art);
         assert!(s.show_in_taskbar);
+        assert!(s.check_for_updates);
         assert_eq!(s.popup_margin, DEFAULT_POPUP_MARGIN);
         assert_eq!(s.monitor_device_name, "");
         assert_eq!(s.play_pause_hotkey, HotkeyBinding::DEFAULT_PLAY_PAUSE);
