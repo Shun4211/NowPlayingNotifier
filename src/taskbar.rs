@@ -642,8 +642,10 @@ fn find_placement() -> Option<Placement> {
 /// 調べるのに少し時間がかかるので、結果を短時間使い回す。
 fn task_buttons(tray: HWND, bar: RECT, start_right: i32, tray_left: i32) -> Option<(i32, i32)> {
     const CACHE: Duration = Duration::from_millis(700);
+    /// 調べた時刻、調べたときの条件、結果。
+    type Cached = (Instant, (i32, i32, i32, i32), Option<(i32, i32)>);
     thread_local! {
-        static LAST: RefCell<Option<(Instant, (i32, i32, i32, i32), Option<(i32, i32)>)>> = const { RefCell::new(None) };
+        static LAST: RefCell<Option<Cached>> = const { RefCell::new(None) };
     }
     let key = (bar.left, bar.right, start_right, tray_left);
     if let Some(hit) = LAST.with(|l| l.borrow().as_ref().filter(|(t, k, _)| *k == key && t.elapsed() < CACHE).map(|(_, _, r)| *r)) {
