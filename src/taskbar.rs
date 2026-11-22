@@ -4,6 +4,7 @@
 //! タスクバーをクリックするとタスクバーが手前に来るので、前面のウィンドウが変わるたびに前に出し直す。
 
 use std::cell::{Cell, RefCell};
+use std::time::{Duration, Instant};
 
 use windows::core::{w, Result};
 use windows::Foundation::Numerics::Matrix3x2;
@@ -15,7 +16,11 @@ use windows::Win32::Graphics::Dxgi::Common::DXGI_FORMAT_B8G8R8A8_UNORM;
 use windows::Win32::Graphics::Gdi::*;
 use windows::Win32::System::LibraryLoader::GetModuleHandleW;
 use windows::Win32::System::Registry::{RegGetValueW, HKEY_CURRENT_USER, RRF_RT_REG_DWORD};
-use windows::Win32::UI::Accessibility::{SetWinEventHook, UnhookWinEvent, HWINEVENTHOOK};
+use windows::Win32::System::Com::{CoCreateInstance, CLSCTX_INPROC_SERVER};
+use windows::Win32::UI::Accessibility::{
+    CUIAutomation, IUIAutomation, SetWinEventHook, TreeScope_Descendants, UnhookWinEvent, UIA_ButtonControlTypeId,
+    HWINEVENTHOOK,
+};
 use windows::Win32::UI::HiDpi::{GetDpiForMonitor, MDT_EFFECTIVE_DPI};
 use windows::Win32::UI::Input::KeyboardAndMouse::{TrackMouseEvent, TME_LEAVE, TRACKMOUSEEVENT};
 use windows::Win32::UI::WindowsAndMessaging::*;
@@ -84,6 +89,8 @@ struct Placement {
     tray_left: i32,
     /// スタートボタンの右端（Windows 10 など、左端にスタートボタンがある場合）
     start_right: i32,
+    /// アプリのボタンが並んでいる範囲（左端, 右端）。調べられなかったときは None。
+    buttons: Option<(i32, i32)>,
     dpi: u32,
     light: bool,
 }
@@ -348,14 +355,17 @@ impl Bar {
         let offset = scale(c.offset, p.dpi);
         // 置く場所の基準（px）。タスクバーの中央を越えて広がらないようにする。
         let center = p.left + (p.right - p.left) / 2;
+        // ボタンの範囲が分かるときは、ボタンに重ならない所までを使う（タスクバーが端まで埋まっていれば何も出さない）。
         let (anchor, available) = match c.position {
             TaskbarPosition::NearTray => {
                 let right = p.tray_left - offset;
-                (right, right - center)
+                let limit = p.buttons.map_or(center, |(_, buttons_right)| buttons_right + offset);
+                (right, right - limit)
             }
             TaskbarPosition::LeftEdge => {
                 let left = p.start_right.max(p.left) + offset;
-                (left, center - left)
+                let limit = p.buttons.map_or(center, |(buttons_left, _)| buttons_left - offset);
+                (left, limit - left)
             }
         };
         let max_width = to_dip(available).min(c.max_width as f32);
@@ -618,12 +628,51 @@ fn find_placement() -> Option<Placement> {
             right: bar.right.min(screen.right),
             tray_left,
             start_right,
+            buttons: task_buttons(tray, bar, start_right, tray_left),
             top: bar.top.max(screen.top),
             bottom: bar.bottom.min(screen.bottom),
             dpi,
             light: taskbar_is_light(),
         })
     }
+}
+
+/// タスクバー上のボタン（スタート・ピン留め・実行中のアプリ）が並ぶ範囲 `(左端, 右端)` を UI Automation で調べる。
+/// `start_right` より右、`tray_left` より左にあるボタンだけを数える。ボタンがなければ範囲は空（左端 > 右端）。
+/// 調べるのに少し時間がかかるので、結果を短時間使い回す。
+fn task_buttons(tray: HWND, bar: RECT, start_right: i32, tray_left: i32) -> Option<(i32, i32)> {
+    const CACHE: Duration = Duration::from_millis(700);
+    thread_local! {
+        static LAST: RefCell<Option<(Instant, (i32, i32, i32, i32), Option<(i32, i32)>)>> = const { RefCell::new(None) };
+    }
+    let key = (bar.left, bar.right, start_right, tray_left);
+    if let Some(hit) = LAST.with(|l| l.borrow().as_ref().filter(|(t, k, _)| *k == key && t.elapsed() < CACHE).map(|(_, _, r)| *r)) {
+        return hit;
+    }
+    let result = unsafe { scan_task_buttons(tray, bar, start_right, tray_left) };
+    LAST.with(|l| *l.borrow_mut() = Some((Instant::now(), key, result)));
+    result
+}
+
+unsafe fn scan_task_buttons(tray: HWND, bar: RECT, start_right: i32, tray_left: i32) -> Option<(i32, i32)> {
+    let uia: IUIAutomation = CoCreateInstance(&CUIAutomation, None, CLSCTX_INPROC_SERVER).ok()?;
+    let root = uia.ElementFromHandle(tray).ok()?;
+    let all = root.FindAll(TreeScope_Descendants, &uia.CreateTrueCondition().ok()?).ok()?;
+    let (mut min_left, mut max_right) = (i32::MAX, i32::MIN);
+    for i in 0..all.Length().ok()? {
+        let Ok(e) = all.GetElement(i) else { continue };
+        if e.CurrentControlType().ok() != Some(UIA_ButtonControlTypeId) {
+            continue;
+        }
+        let Ok(r) = e.CurrentBoundingRectangle() else { continue };
+        let in_bar = r.right > r.left && r.top < bar.bottom && r.bottom > bar.top;
+        if in_bar && r.left >= start_right && r.right <= tray_left {
+            min_left = min_left.min(r.left);
+            max_right = max_right.max(r.right);
+        }
+    }
+    // ボタンが1つも見つからなかった（UIA が使えない）ときは、従来どおりの位置決めにする
+    (min_left <= max_right).then_some((min_left, max_right))
 }
 
 /// タスクバーのあるモニターを、前面のウィンドウ（ゲームや動画など）が覆っているか。
