@@ -1,4 +1,4 @@
-//! 開発用のログ（デバッグビルドのみ）。%LOCALAPPDATA%\OtherPlayingNotifier\debug.log に追記する。
+//! 開発用のログ（デバッグビルドのみ）。%LOCALAPPDATA%\NowPlayingNotifier\debug.log に追記する。
 //! リリースビルドでは何もしない。
 
 #[cfg(debug_assertions)]
@@ -9,7 +9,7 @@ pub fn write(message: std::fmt::Arguments) {
 
     static START: OnceLock<Instant> = OnceLock::new();
     let start = START.get_or_init(Instant::now);
-    let Some(dir) = std::env::var_os("LOCALAPPDATA").map(|d| std::path::PathBuf::from(d).join("OtherPlayingNotifier")) else {
+    let Some(dir) = std::env::var_os("LOCALAPPDATA").map(|d| std::path::PathBuf::from(d).join("NowPlayingNotifier")) else {
         return;
     };
     let _ = std::fs::create_dir_all(&dir);

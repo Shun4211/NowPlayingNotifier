@@ -177,17 +177,32 @@ impl Default for Settings {
     }
 }
 
-fn settings_path() -> Option<PathBuf> {
+fn settings_path_for(app_name: &str) -> Option<PathBuf> {
     let appdata = std::env::var_os("APPDATA")?;
-    Some(PathBuf::from(appdata).join("OtherPlayingNotifier").join("settings.json"))
+    Some(PathBuf::from(appdata).join(app_name).join("settings.json"))
+}
+
+fn settings_path() -> Option<PathBuf> {
+    settings_path_for(crate::system::APP_NAME)
 }
 
 impl Settings {
     pub fn load() -> Self {
-        settings_path()
-            .and_then(|p| std::fs::read_to_string(p).ok())
-            .and_then(|json| Self::from_json(&json))
-            .unwrap_or_default()
+        let read = |p: PathBuf| std::fs::read_to_string(p).ok();
+        if let Some(json) = settings_path().and_then(read) {
+            return Self::from_json(&json).unwrap_or_default();
+        }
+        // 旧名（OtherPlayingNotifier。C# 版も同じ場所）の設定があれば、新しい場所にコピーして使う
+        let Some(json) = settings_path_for(crate::system::LEGACY_APP_NAME).and_then(read) else {
+            return Self::default();
+        };
+        if let Some(path) = settings_path() {
+            let copied = path.parent().map_or(Ok(()), std::fs::create_dir_all).and_then(|_| std::fs::write(&path, &json));
+            if let Err(e) = copied {
+                eprintln!("failed to migrate settings: {e}");
+            }
+        }
+        Self::from_json(&json).unwrap_or_default()
     }
 
     pub fn save(&mut self) -> std::io::Result<()> {

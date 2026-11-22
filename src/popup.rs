@@ -162,13 +162,13 @@ pub fn create(on_click: fn()) -> Result<()> {
             lpfnWndProc: Some(wndproc),
             hInstance: hinstance,
             hCursor: LoadCursorW(None, IDC_HAND)?,
-            lpszClassName: w!("OtherPlayingNotifier.Popup"),
+            lpszClassName: w!("NowPlayingNotifier.Popup"),
             ..Default::default()
         };
         RegisterClassW(&class);
         let hwnd = CreateWindowExW(
             WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
-            w!("OtherPlayingNotifier.Popup"),
+            w!("NowPlayingNotifier.Popup"),
             w!("Now Playing"),
             WS_POPUP,
             0, 0, 0, 0,

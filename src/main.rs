@@ -1,4 +1,4 @@
-//! OtherPlayingNotifier: 再生中の曲が変わったときにポップアップで知らせる常駐アプリ。
+//! NowPlayingNotifier: 再生中の曲が変わったときにポップアップで知らせる常駐アプリ。
 #![cfg_attr(not(test), windows_subsystem = "windows")]
 
 mod app;
@@ -50,7 +50,7 @@ fn main() {
 
     if let Err(e) = app::start() {
         unsafe {
-            MessageBoxW(None, &HSTRING::from(e.message()), w!("OtherPlayingNotifier"), MB_ICONERROR);
+            MessageBoxW(None, &HSTRING::from(e.message()), w!("NowPlayingNotifier"), MB_ICONERROR);
         }
         return;
     }

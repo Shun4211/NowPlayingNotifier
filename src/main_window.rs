@@ -38,14 +38,14 @@ pub fn create() -> Result<HWND> {
             hIcon: LoadIconW(hinstance, crate::win::APP_ICON).unwrap_or_default(),
             hCursor: LoadCursorW(None, IDC_ARROW)?,
             hbrBackground: HBRUSH((COLOR_WINDOW.0 + 1) as isize as *mut _),
-            lpszClassName: w!("OtherPlayingNotifier.Main"),
+            lpszClassName: w!("NowPlayingNotifier.Main"),
             ..Default::default()
         };
         RegisterClassW(&class);
         let dpi = GetDpiForSystem();
         let hwnd = CreateWindowExW(
             WINDOW_EX_STYLE(0),
-            w!("OtherPlayingNotifier.Main"),
+            w!("NowPlayingNotifier.Main"),
             w!("Now Playing"),
             WS_OVERLAPPEDWINDOW,
             CW_USEDEFAULT,

@@ -46,11 +46,11 @@ BEGIN
         BLOCK "000004b0"
         BEGIN
             VALUE "CompanyName", "Shun4211"
-            VALUE "FileDescription", "OtherPlayingNotifier"
+            VALUE "FileDescription", "NowPlayingNotifier"
             VALUE "FileVersion", "{version}"
-            VALUE "InternalName", "OtherPlayingNotifier"
-            VALUE "OriginalFilename", "OtherPlayingNotifier.exe"
-            VALUE "ProductName", "OtherPlayingNotifier"
+            VALUE "InternalName", "NowPlayingNotifier"
+            VALUE "OriginalFilename", "NowPlayingNotifier.exe"
+            VALUE "ProductName", "NowPlayingNotifier"
             VALUE "ProductVersion", "{version}"
         END
     END

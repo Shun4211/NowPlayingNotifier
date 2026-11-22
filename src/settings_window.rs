@@ -158,7 +158,7 @@ pub fn open(owner: Option<HWND>, settings: Settings, callbacks: Callbacks) -> Re
             hInstance: hinstance,
             hIcon: LoadIconW(hinstance, crate::win::APP_ICON).unwrap_or_default(),
             hCursor: LoadCursorW(None, IDC_ARROW)?,
-            lpszClassName: w!("OtherPlayingNotifier.Settings"),
+            lpszClassName: w!("NowPlayingNotifier.Settings"),
             ..Default::default()
         };
         RegisterClassW(&class);
@@ -167,7 +167,7 @@ pub fn open(owner: Option<HWND>, settings: Settings, callbacks: Callbacks) -> Re
         let style = WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX | WS_CLIPCHILDREN;
         let hwnd = CreateWindowExW(
             WS_EX_CONTROLPARENT | WS_EX_DLGMODALFRAME,
-            w!("OtherPlayingNotifier.Settings"),
+            w!("NowPlayingNotifier.Settings"),
             title.pcwstr(),
             style,
             CW_USEDEFAULT,

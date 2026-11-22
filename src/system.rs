@@ -14,7 +14,9 @@ use windows::Win32::UI::WindowsAndMessaging::*;
 use crate::position::Rect;
 use crate::win::{post_event, wide, AppEvent};
 
-pub const APP_NAME: &str = "OtherPlayingNotifier";
+pub const APP_NAME: &str = "NowPlayingNotifier";
+/// 以前の名前。設定と自動起動の登録を引き継ぐために使う。
+pub const LEGACY_APP_NAME: &str = "OtherPlayingNotifier";
 
 // ---------------------------------------------------------------------------
 // 二重起動の防止（名前は C# 版・インストーラーの AppMutex と同じ）
@@ -29,9 +31,9 @@ impl SingleInstance {
     /// 最初のインスタンスなら Some。2つ目以降なら1つ目に表示を依頼して None を返す。
     pub fn acquire() -> Option<Self> {
         unsafe {
-            let mutex = CreateMutexW(None, true, w!("Local\\OtherPlayingNotifier.SingleInstance")).ok()?;
+            let mutex = CreateMutexW(None, true, w!("Local\\NowPlayingNotifier.SingleInstance")).ok()?;
             let already = GetLastError() == ERROR_ALREADY_EXISTS;
-            let event = CreateEventW(None, false, false, w!("Local\\OtherPlayingNotifier.Activate")).ok()?;
+            let event = CreateEventW(None, false, false, w!("Local\\NowPlayingNotifier.Activate")).ok()?;
             if already {
                 let _ = SetEvent(event);
                 let _ = CloseHandle(event);
@@ -87,6 +89,10 @@ pub fn apply_startup_registration(enabled: bool) -> Result<()> {
     unsafe {
         let mut key = HKEY::default();
         RegCreateKeyExW(HKEY_CURRENT_USER, RUN_KEY, 0, None, REG_OPTION_NON_VOLATILE, KEY_READ | KEY_WRITE, None, &mut key, None).ok()?;
+        // 旧名で登録した自動起動は、古い exe を指しているので消す（必要なら新しい名前で登録し直す）
+        let legacy = wide(LEGACY_APP_NAME);
+        let _ = RegDeleteValueW(key, legacy.pcwstr());
+
         let name = wide(APP_NAME);
         let result = if enabled {
             let path = exe_path().ok_or_else(|| windows::core::Error::from_hresult(E_FAIL))?;

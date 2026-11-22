@@ -33,7 +33,7 @@ jobs:
       - name: Upload exe
         uses: actions/upload-artifact@v4
         with:
-          name: OtherPlayingNotifier
+          name: NowPlayingNotifier
           path: |
-            target/release/OtherPlayingNotifier.exe
-            target/release/OtherPlayingNotifier.pdb
+            target/release/NowPlayingNotifier.exe
+            target/release/NowPlayingNotifier.pdb

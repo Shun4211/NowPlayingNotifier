@@ -91,14 +91,14 @@ pub fn start() -> Result<()> {
         let class = WNDCLASSW {
             lpfnWndProc: Some(wndproc),
             hInstance: hinstance,
-            lpszClassName: w!("OtherPlayingNotifier.Controller"),
+            lpszClassName: w!("NowPlayingNotifier.Controller"),
             ..Default::default()
         };
         RegisterClassW(&class);
         CreateWindowExW(
             WINDOW_EX_STYLE(0),
-            w!("OtherPlayingNotifier.Controller"),
-            w!("OtherPlayingNotifier"),
+            w!("NowPlayingNotifier.Controller"),
+            w!("NowPlayingNotifier"),
             WS_OVERLAPPED,
             0, 0, 0, 0,
             None, None, hinstance, None,

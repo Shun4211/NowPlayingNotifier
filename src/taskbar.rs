@@ -133,13 +133,13 @@ pub fn create(callbacks: Callbacks) -> Result<()> {
             lpfnWndProc: Some(wndproc),
             hInstance: hinstance,
             hCursor: LoadCursorW(None, IDC_HAND)?,
-            lpszClassName: w!("OtherPlayingNotifier.Taskbar"),
+            lpszClassName: w!("NowPlayingNotifier.Taskbar"),
             ..Default::default()
         };
         RegisterClassW(&class);
         let hwnd = CreateWindowExW(
             WS_EX_LAYERED | WS_EX_TOPMOST | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
-            w!("OtherPlayingNotifier.Taskbar"),
+            w!("NowPlayingNotifier.Taskbar"),
             w!("Now Playing (Taskbar)"),
             WS_POPUP,
             0, 0, 0, 0,

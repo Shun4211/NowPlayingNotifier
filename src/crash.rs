@@ -1,5 +1,5 @@
 //! 異常終了の原因を調べるための記録。
-//! %LOCALAPPDATA%\OtherPlayingNotifier\crash.log に、パニックと致命的な例外（アクセス違反など）を書き出す。
+//! %LOCALAPPDATA%\NowPlayingNotifier\crash.log に、パニックと致命的な例外（アクセス違反など）を書き出す。
 
 use std::io::Write;
 use std::path::PathBuf;
@@ -15,7 +15,7 @@ const EXCEPTION_CONTINUE_SEARCH: i32 = 0;
 const STATUS_FATAL_USER_CALLBACK_EXCEPTION: NTSTATUS = NTSTATUS(0xC000041Du32 as i32);
 
 fn log_path() -> Option<PathBuf> {
-    let dir = PathBuf::from(std::env::var_os("LOCALAPPDATA")?).join("OtherPlayingNotifier");
+    let dir = PathBuf::from(std::env::var_os("LOCALAPPDATA")?).join("NowPlayingNotifier");
     std::fs::create_dir_all(&dir).ok()?;
     Some(dir.join("crash.log"))
 }

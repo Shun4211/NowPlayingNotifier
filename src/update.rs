@@ -16,8 +16,8 @@ use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
 use crate::win::{post_event, wide, AppEvent};
 
-const LATEST_RELEASE_API: &str = "https://api.github.com/repos/Shun4211/OtherPlayingNotifier/releases/latest";
-pub const RELEASES_PAGE: &str = "https://github.com/Shun4211/OtherPlayingNotifier/releases/latest";
+const LATEST_RELEASE_API: &str = "https://api.github.com/repos/Shun4211/NowPlayingNotifier/releases/latest";
+pub const RELEASES_PAGE: &str = "https://github.com/Shun4211/NowPlayingNotifier/releases/latest";
 
 /// インストーラーが作るアンインストーラー。exe の隣にあれば、インストーラーで入れたものとみなす。
 const UNINSTALLER: &str = "unins000.exe";
@@ -107,7 +107,7 @@ pub fn is_installed() -> bool {
 }
 
 fn download_dir() -> PathBuf {
-    std::env::temp_dir().join("OtherPlayingNotifier-update")
+    std::env::temp_dir().join("NowPlayingNotifier-update")
 }
 
 /// 別スレッドでインストーラーをダウンロードし、結果を `UpdateEvent::Downloaded` で知らせる。
@@ -122,7 +122,7 @@ pub fn download(url: String) {
             let dir = download_dir();
             let _ = std::fs::remove_dir_all(&dir);
             std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-            let path = dir.join("OtherPlayingNotifier-setup.exe");
+            let path = dir.join("NowPlayingNotifier-setup.exe");
             std::fs::write(&path, body).map_err(|e| e.to_string())?;
             Ok(path)
         })();
@@ -149,7 +149,7 @@ pub fn launch_pending_installer() {
 
 fn launch_installer(path: &Path) {
     let file = wide(&path.to_string_lossy());
-    // /RELAUNCH=1: インストールが終わったらアプリを起動し直す（installer\OtherPlayingNotifier.iss）
+    // /RELAUNCH=1: インストールが終わったらアプリを起動し直す（installer\NowPlayingNotifier.iss）
     let args = w!("/SILENT /SUPPRESSMSGBOXES /NORESTART /RELAUNCH=1");
     unsafe {
         ShellExecuteW(None, w!("open"), file.pcwstr(), args, PCWSTR::null(), SW_SHOWNORMAL);
@@ -203,7 +203,7 @@ impl Drop for Handle {
 /// HTTPS で GET し、本文を返す（リダイレクトは WinHTTP がたどる）。200 以外はエラー。
 fn http_get(url: &str, accept: &str) -> Result<Vec<u8>, String> {
     let (host, path) = split_https_url(url).ok_or_else(|| format!("unsupported url: {url}"))?;
-    let agent = wide(&format!("OtherPlayingNotifier/{}", crate::APP_VERSION));
+    let agent = wide(&format!("NowPlayingNotifier/{}", crate::APP_VERSION));
     let host = wide(host);
     let path = wide(path);
     let headers: Vec<u16> = accept.encode_utf16().collect();
@@ -291,15 +291,15 @@ mod tests {
     fn parses_github_release_response() {
         let json = r#"{
             "tag_name": "v1.3.0",
-            "html_url": "https://github.com/Shun4211/OtherPlayingNotifier/releases/tag/v1.3.0",
+            "html_url": "https://github.com/Shun4211/NowPlayingNotifier/releases/tag/v1.3.0",
             "assets": [
-                { "name": "OtherPlayingNotifier-1.3.0-win-x64.zip", "browser_download_url": "https://example.com/a.zip" },
-                { "name": "OtherPlayingNotifier-1.3.0-win-x64-setup.exe", "browser_download_url": "https://example.com/setup.exe" }
+                { "name": "NowPlayingNotifier-1.3.0-win-x64.zip", "browser_download_url": "https://example.com/a.zip" },
+                { "name": "NowPlayingNotifier-1.3.0-win-x64-setup.exe", "browser_download_url": "https://example.com/setup.exe" }
             ]
         }"#;
         let r = parse_release(json).unwrap();
         assert_eq!(r.version, "1.3.0");
-        assert_eq!(r.page_url, "https://github.com/Shun4211/OtherPlayingNotifier/releases/tag/v1.3.0");
+        assert_eq!(r.page_url, "https://github.com/Shun4211/NowPlayingNotifier/releases/tag/v1.3.0");
         assert_eq!(r.installer_url.as_deref(), Some("https://example.com/setup.exe"));
     }
 

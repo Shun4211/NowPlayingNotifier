@@ -35,9 +35,9 @@ jobs:
           cargo build --release
 
           $version = $env:APP_VERSION
-          Compress-Archive target/release/OtherPlayingNotifier.exe "OtherPlayingNotifier-$version-win-x64.zip"
+          Compress-Archive target/release/NowPlayingNotifier.exe "NowPlayingNotifier-$version-win-x64.zip"
           # 異常終了の調査用（デバッガーで関数名と行番号を出すためのシンボル）
-          Compress-Archive target/release/OtherPlayingNotifier.pdb "OtherPlayingNotifier-$version-win-x64-symbols.zip"
+          Compress-Archive target/release/NowPlayingNotifier.pdb "NowPlayingNotifier-$version-win-x64-symbols.zip"
 
       - name: Build installer
         shell: pwsh
@@ -53,7 +53,7 @@ jobs:
             choco install innosetup -y --no-progress
           }
 
-          & $iscc "/DAppVersion=$version" installer/OtherPlayingNotifier.iss
+          & $iscc "/DAppVersion=$version" installer/NowPlayingNotifier.iss
           Copy-Item installer-output/*.exe .
 
       - name: Create GitHub Release

@@ -1,6 +1,6 @@
-# 🎮 OtherPlayingNotifier
+# 🎮 NowPlayingNotifier
 
-[![CI](https://github.com/Shun4211/OtherPlayingNotifier/actions/workflows/ci.yml/badge.svg)](https://github.com/Shun4211/OtherPlayingNotifier/actions/workflows/ci.yml)
+[![CI](https://github.com/Shun4211/NowPlayingNotifier/actions/workflows/ci.yml/badge.svg)](https://github.com/Shun4211/NowPlayingNotifier/actions/workflows/ci.yml)
 
 Windows で再生中の曲を、見た目を変えられるポップアップで知らせる常駐アプリです。Rust で書かれており、exe は約 0.3MB です。ランタイムをインストールする必要はなく、メモリもあまり使いません。
 
@@ -22,17 +22,17 @@ Spotify、Apple Music、YouTube など、Windows のメディア操作に対応�
 
 ## 📥 ダウンロード
 
-[Releases](https://github.com/Shun4211/OtherPlayingNotifier/releases) からインストーラーか zip をダウンロードしてください。
+[Releases](https://github.com/Shun4211/NowPlayingNotifier/releases) からインストーラーか zip をダウンロードしてください。
 
 | ファイル | 説明 |
 |------|------|
-| `OtherPlayingNotifier-x.y.z-win-x64-setup.exe` | インストーラー（おすすめ）。管理者権限は不要です。スタートメニューに登録され、アンインストールもできます |
-| `OtherPlayingNotifier-x.y.z-win-x64.zip` | exe だけが入っています。インストールせずにすぐ使えます |
-| `OtherPlayingNotifier-x.y.z-win-x64-symbols.zip` | 不具合調査用のシンボル (PDB)。普段は不要です |
+| `NowPlayingNotifier-x.y.z-win-x64-setup.exe` | インストーラー（おすすめ）。管理者権限は不要です。スタートメニューに登録され、アンインストールもできます |
+| `NowPlayingNotifier-x.y.z-win-x64.zip` | exe だけが入っています。インストールせずにすぐ使えます |
+| `NowPlayingNotifier-x.y.z-win-x64-symbols.zip` | 不具合調査用のシンボル (PDB)。普段は不要です |
 
 **動作環境**: Windows 10 (19041 以降) / Windows 11、x64
 
-以前の C# 版を使っていた場合、設定はそのまま引き継がれます。インストーラーは C# 版に上書きでインストールできます。
+バージョン 1.2.1 までは「OtherPlayingNotifier」という名前でした。旧名のバージョン（C# 版を含む）を使っていた場合も、設定と自動起動はそのまま引き継がれます。インストーラーは上書きでインストールでき、旧名のフォルダーやショートカットは自動で削除されます。
 
 ## ⌨️ ホットキー（初期設定）
 
@@ -56,7 +56,7 @@ Spotify、Apple Music、YouTube など、Windows のメディア操作に対応�
 - ホットキー
 - 言語（日本語/English）
 
-「プレビュー」ボタンを押すと、保存する前に見た目を確認できます。設定は `%APPDATA%\OtherPlayingNotifier\settings.json` に保存されます。
+「プレビュー」ボタンを押すと、保存する前に見た目を確認できます。設定は `%APPDATA%\NowPlayingNotifier\settings.json` に保存されます。
 
 ## 🔄 アップデート
 
@@ -67,13 +67,13 @@ Spotify、Apple Music、YouTube など、Windows のメディア操作に対応�
 
 確認のために送るのは GitHub へのバージョン確認のリクエストだけで、個人の情報は送りません。
 
-アプリが異常終了したときは、`%LOCALAPPDATA%\OtherPlayingNotifier\crash.log` に記録が残ります。
+アプリが異常終了したときは、`%LOCALAPPDATA%\NowPlayingNotifier\crash.log` に記録が残ります。
 
 ## 🛠️ 開発
 
 ```sh
-git clone https://github.com/Shun4211/OtherPlayingNotifier.git
-cd OtherPlayingNotifier
+git clone https://github.com/Shun4211/NowPlayingNotifier.git
+cd NowPlayingNotifier
 
 # 実行
 cargo run
@@ -82,7 +82,7 @@ cargo run
 cargo test
 cargo clippy --all-targets -- -D warnings
 
-# 配布用の exe を作成（target/release/OtherPlayingNotifier.exe）
+# 配布用の exe を作成（target/release/NowPlayingNotifier.exe）
 cargo build --release
 ```
 
@@ -92,7 +92,7 @@ cargo build --release
 
 ### リリース手順
 
-`v1.2.3` のようなタグを push すると、GitHub Actions がテストとビルドを行い、Releases にインストーラーと zip を公開します。インストーラーは [Inno Setup](https://jrsoftware.org/isinfo.php)（`installer/OtherPlayingNotifier.iss`）で作っています。exe のバージョン情報はタグから付きます。
+`v1.2.3` のようなタグを push すると、GitHub Actions がテストとビルドを行い、Releases にインストーラーと zip を公開します。インストーラーは [Inno Setup](https://jrsoftware.org/isinfo.php)（`installer/NowPlayingNotifier.iss`）で作っています。exe のバージョン情報はタグから付きます。
 
 ```sh
 git tag v1.2.3
@@ -109,7 +109,7 @@ git push origin v1.2.3
 ## 📂 プロジェクト構成
 
 ```
-OtherPlayingNotifier/
+NowPlayingNotifier/
 ├── src/
 │   ├── main.rs             # 起動処理
 │   ├── app.rs              # 各機能の取りまとめ・メッセージ処理

@@ -1,13 +1,13 @@
 [package]
-name = "other-playing-notifier"
-version = "1.2.1"
+name = "now-playing-notifier"
+version = "1.3.0"
 edition = "2021"
 publish = false
 description = "Windows で再生中の曲が変わったときにポップアップで通知する常駐アプリ"
 license-file = "LICENSE"
 
 [[bin]]
-name = "OtherPlayingNotifier"
+name = "NowPlayingNotifier"
 path = "src/main.rs"
 
 [dependencies]
