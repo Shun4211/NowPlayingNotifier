@@ -1,0 +1,66 @@
+name: Release
+
+# v1.2.3 のようなタグを push すると、ビルドして GitHub Releases に exe を公開する
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Rust
+        run: |
+          rustup update stable --no-self-update
+          rustup default stable
+
+      - name: Test
+        run: cargo test --release
+
+      - name: Build
+        shell: pwsh
+        run: |
+          # cargo などの外部コマンドが失敗したら即座に止める
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
+
+          # exe のバージョン情報はタグから付ける（build.rs が APP_VERSION を読む）
+          $env:APP_VERSION = "${{ github.ref_name }}".TrimStart("v")
+          cargo build --release
+
+          $version = $env:APP_VERSION
+          Compress-Archive target/release/OtherPlayingNotifier.exe "OtherPlayingNotifier-$version-win-x64.zip"
+          # 異常終了の調査用（デバッガーで関数名と行番号を出すためのシンボル）
+          Compress-Archive target/release/OtherPlayingNotifier.pdb "OtherPlayingNotifier-$version-win-x64-symbols.zip"
+
+      - name: Build installer
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $PSNativeCommandUseErrorActionPreference = $true
+
+          $version = "${{ github.ref_name }}".TrimStart("v")
+
+          # Inno Setup がランナーに無ければ入れる
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup -y --no-progress
+          }
+
+          & $iscc "/DAppVersion=$version" installer/OtherPlayingNotifier.iss
+          Copy-Item installer-output/*.exe .
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $assets = (Get-ChildItem *.zip, *-setup.exe).FullName
+          gh release create "${{ github.ref_name }}" $assets `
+            --title "${{ github.ref_name }}" --generate-notes
